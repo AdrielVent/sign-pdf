@@ -1,0 +1,9 @@
+node_modules/
+dist/
+public/pdfjs/
+test-results/
+playwright-report/
+tests/fixtures/generated/
+.DS_Store
+*.log
+public/licenses/

@@ -1,0 +1,313 @@
+/* Plain early-2000s desktop look: gray windows, beveled buttons, navy title bars. */
+:root {
+  --ink: #000;
+  --muted: #444;
+  --face: #d4d0c8;       /* button / window face */
+  --light: #fff;         /* bevel highlight */
+  --soft: #e8e6e0;       /* inner highlight */
+  --shadow: #808080;     /* bevel shadow */
+  --dark: #404040;       /* outer bevel shadow */
+  --paper: #fff;
+  --navy: #0a246a;
+  --title: linear-gradient(90deg, #0a246a, #3a6ea5);
+  --select: #0a246a;
+  --danger: #a00000;
+  --tip: #ffffe1;
+  --raised: inset -1px -1px var(--dark), inset 1px 1px var(--light), inset -2px -2px var(--shadow), inset 2px 2px var(--soft);
+  --pressed: inset -1px -1px var(--light), inset 1px 1px var(--dark), inset -2px -2px var(--soft), inset 2px 2px var(--shadow);
+  --sunken: inset 1px 1px var(--shadow), inset -1px -1px var(--light), inset 2px 2px var(--dark), inset -2px -2px var(--soft);
+  --topbar: 34px;
+  font-family: Tahoma, Verdana, 'Segoe UI', Geneva, sans-serif;
+  font-size: 13px;
+  color: var(--ink);
+  background: var(--face);
+  line-height: 1.4;
+  -webkit-text-size-adjust: 100%;
+}
+
+* { box-sizing: border-box; }
+html, body { margin: 0; height: 100%; }
+body { min-height: 100dvh; display: flex; flex-direction: column; background: var(--face); }
+[hidden] { display: none !important; }
+
+:focus-visible { outline: 1px dotted #000; outline-offset: -5px; }
+input:focus-visible, .scroller:focus-visible, canvas:focus-visible { outline: 1px dotted #000; outline-offset: 1px; }
+
+.sr-only {
+  position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px;
+  overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; border: 0;
+}
+.file-hidden { position: fixed; left: -9999px; width: 1px; height: 1px; opacity: 0; }
+.skip { position: absolute; left: -9999px; top: 4px; z-index: 100; background: var(--tip); border: 1px solid #000; padding: 4px 8px; color: #000; }
+.skip:focus { left: 4px; }
+.muted { color: var(--muted); }
+a { color: #00c; }
+
+/* ---------- buttons ---------- */
+.btn {
+  display: inline-flex; align-items: center; justify-content: center; gap: 6px;
+  min-height: 30px; min-width: 80px; padding: 0 12px;
+  font: inherit; color: var(--ink); background: var(--face);
+  border: 0; border-radius: 0; box-shadow: var(--raised);
+  cursor: pointer; white-space: nowrap;
+}
+.btn:active, .btn.busy { box-shadow: var(--pressed); }
+.btn:active > * { transform: translate(1px, 1px); }
+/* The default button gets the classic black frame. */
+.btn.primary { font-weight: bold; box-shadow: inset 0 0 0 1px #000, inset -2px -2px var(--dark), inset 2px 2px var(--light), inset -3px -3px var(--shadow), inset 3px 3px var(--soft); }
+.btn.primary:active { box-shadow: inset 0 0 0 1px #000, inset 0 0 0 2px var(--shadow); }
+.btn.primary[aria-disabled='true'] { color: var(--shadow); text-shadow: 1px 1px var(--light); }
+.btn.danger { font-weight: bold; }
+.btn.small { min-height: 26px; min-width: 64px; padding: 0 10px; }
+.btn.big { min-height: 40px; min-width: 160px; padding: 0 28px; font-size: 15px; }
+.btn.busy { cursor: progress; }
+.btn img { height: 20px; max-width: 64px; object-fit: contain; background: #fff; box-shadow: var(--sunken); padding: 2px; }
+.icon-btn {
+  display: inline-flex; align-items: center; justify-content: center;
+  width: 30px; height: 30px; padding: 0;
+  font: inherit; font-size: 16px; font-weight: bold; line-height: 1; color: var(--ink);
+  background: var(--face); border: 0; border-radius: 0; box-shadow: var(--raised); cursor: pointer;
+}
+.icon-btn:active { box-shadow: var(--pressed); }
+.linklike {
+  font: inherit; color: #00c; background: none; border: 0; padding: 2px; cursor: pointer;
+  text-decoration: underline;
+}
+
+/* ---------- title bars & windows ---------- */
+.titlebar, .topbar {
+  display: flex; align-items: center; justify-content: space-between; gap: 8px;
+  background: var(--title); color: #fff; font-weight: bold;
+}
+.topbar { height: var(--topbar); flex: none; padding: 0 4px 0 8px; }
+.brand { display: inline-flex; align-items: center; gap: 6px; color: #fff; text-decoration: none; font-weight: bold; font-size: 13px; }
+.brand svg { color: #000; width: 18px; height: 18px; }
+.menu-btn {
+  font: inherit; color: #000; background: var(--face); border: 0; box-shadow: var(--raised);
+  height: 24px; padding: 0 10px; cursor: pointer;
+}
+.menu-btn:active { box-shadow: var(--pressed); }
+
+.window { background: var(--face); box-shadow: var(--raised); padding: 3px; }
+.titlebar { height: 22px; padding: 0 6px; font-size: 13px; }
+.window-body { padding: 16px 20px 18px; }
+.statusbar {
+  margin: 3px 0 0; padding: 3px 8px; font-size: 12px;
+  box-shadow: inset 1px 1px var(--shadow), inset -1px -1px var(--light);
+  display: flex; align-items: center; gap: 6px; flex-wrap: wrap;
+}
+
+main { flex: 1; display: flex; flex-direction: column; min-height: 0; }
+
+/* ---------- start screen ---------- */
+.start { flex: 1; display: flex; align-items: center; justify-content: center; padding: 24px 12px 40px; background: #3a6ea5; }
+.start-window { width: 100%; max-width: 520px; }
+.start h1 { font-size: 20px; margin: 0 0 6px; }
+.lede { margin: 0 0 14px; }
+.drop {
+  background: var(--paper); box-shadow: var(--sunken);
+  padding: 26px 16px 20px; text-align: center;
+}
+.hint { color: var(--muted); font-size: 12px; margin: 10px 0 0; }
+.hint.left { text-align: left; margin-top: 0; }
+.steps { margin: 14px 0 0; padding-left: 22px; }
+.steps li { margin: 2px 0; }
+
+.alert { padding: 8px 10px; margin: 12px 0 0; text-align: left; border: 1px solid #000; background: var(--tip); }
+.alert.error { color: var(--danger); background: #fff; border-color: var(--danger); }
+.alert.warn { display: flex; gap: 8px; align-items: flex-start; margin: 0; }
+.alert.warn p { margin: 0; flex: 1; }
+.alert.warn .icon-btn { width: 22px; height: 22px; flex: none; font-size: 13px; }
+
+/* ---------- workspace ---------- */
+.workspace {
+  flex: 1; min-height: 0;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  grid-template-rows: auto auto minmax(0, 1fr);
+  grid-template-areas: 'tools actions' 'notices notices' 'view view';
+  height: calc(100dvh - var(--topbar));
+}
+.toolbar, .actions {
+  display: flex; align-items: center; gap: 4px 10px; flex-wrap: wrap;
+  padding: 4px 6px; background: var(--face);
+  box-shadow: inset 0 -1px var(--shadow), inset 0 1px var(--light);
+}
+.toolbar { grid-area: tools; }
+.actions { grid-area: actions; justify-content: flex-end; gap: 6px; }
+.notices { grid-area: notices; display: grid; gap: 4px; padding: 0 6px; }
+.notices:not(:empty) { padding: 4px 6px; }
+.file-name { font-weight: bold; max-width: 28ch; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; padding-right: 4px; }
+.group { display: inline-flex; align-items: center; gap: 3px; padding-left: 10px; border-left: 1px solid var(--shadow); box-shadow: inset 1px 0 var(--light); }
+.page-input input {
+  width: 3.2em; height: 24px; text-align: center; font: inherit;
+  border: 0; border-radius: 0; box-shadow: var(--sunken); background: #fff; margin: 0 3px;
+}
+.zoom-level { min-width: 3.5em; text-align: center; font-variant-numeric: tabular-nums; }
+.btn.subtle { /* same raised look; "subtle" only meant secondary */ }
+
+.scroller { grid-area: view; overflow: auto; -webkit-overflow-scrolling: touch; background: #808080; outline: none; box-shadow: var(--sunken); }
+.pages { display: flex; flex-direction: column; align-items: center; gap: 14px; padding: 14px; min-width: min-content; }
+.page { position: relative; flex: none; background: #fff; border: 1px solid #000; box-shadow: 3px 3px 0 #404040; }
+.page:not(.rendered)::after {
+  content: 'Loading page…'; position: absolute; inset: 0; display: grid; place-items: center;
+  color: #808080;
+}
+.page-canvas { position: absolute; inset: 0; width: 100%; height: 100%; display: block; }
+.overlay { position: absolute; inset: 0; }
+
+/* ---------- placements ---------- */
+.placement {
+  position: absolute; touch-action: none; cursor: move; user-select: none; -webkit-user-select: none;
+  outline: 1px dashed transparent; outline-offset: 2px;
+}
+.placement img { width: 100%; height: 100%; display: block; pointer-events: none; }
+.placement:hover { outline-color: #808080; }
+.placement.selected, .placement:focus-visible { outline: 1px dashed #000; outline-offset: 2px; }
+.resize-handle {
+  position: absolute; right: -14px; bottom: -14px; width: 28px; height: 28px;
+  display: none; cursor: nwse-resize; touch-action: none;
+}
+.resize-handle::after { content: ''; position: absolute; inset: 9px; background: #000; }
+.placement.selected .resize-handle { display: block; }
+.placement-bar {
+  position: absolute; left: 50%; bottom: calc(100% + 8px); transform: translateX(-50%);
+  display: none; gap: 2px; padding: 3px; white-space: nowrap; z-index: 5;
+  background: var(--face); box-shadow: var(--raised), 2px 2px 0 rgba(0, 0, 0, 0.35);
+}
+.placement.near-top .placement-bar { bottom: auto; top: calc(100% + 18px); }
+.placement.selected .placement-bar { display: flex; }
+.placement.dragging .placement-bar { display: none; }
+.placement-bar button {
+  min-width: 40px; height: 40px; padding: 0 10px; font: inherit;
+  color: #000; background: var(--face); border: 0; border-radius: 0; box-shadow: var(--raised); cursor: pointer;
+}
+.placement-bar button:active { box-shadow: var(--pressed); }
+.placement-bar button.danger { color: var(--danger); }
+
+/* ---------- dialogs (windows) ---------- */
+dialog {
+  border: 0; padding: 3px; border-radius: 0; width: min(500px, calc(100vw - 16px));
+  max-height: calc(100dvh - 16px); color: var(--ink);
+  background: var(--face); box-shadow: var(--raised), 4px 4px 0 rgba(0, 0, 0, 0.35);
+}
+dialog::backdrop { background: rgba(0, 0, 0, 0.25); }
+.dialog { display: grid; gap: 10px; padding: 0 0 12px; }
+.dialog > * { margin-left: 12px !important; margin-right: 12px !important; }
+.dialog > .dialog-head, .dialog > h2:first-child { margin: 0 !important; }
+.dialog h2 { margin: 0; font-size: 13px; }
+.dialog p { margin: 0; }
+/* The heading row (or a lone heading) becomes the window's title bar. */
+.dialog-head, .dialog > h2:first-child {
+  display: flex; align-items: center; justify-content: space-between; gap: 8px;
+  min-height: 24px; padding: 2px 3px 2px 6px; background: var(--title); color: #fff;
+}
+.dialog-head h2 { color: #fff; }
+.dialog-head .icon-btn { width: 20px; height: 18px; font-size: 13px; }
+.dialog-foot { display: flex; justify-content: flex-end; gap: 6px; flex-wrap: wrap; }
+#confirm-dialog, #message-dialog { width: min(400px, calc(100vw - 16px)); }
+
+/* tab control */
+.tabs { display: flex; gap: 0; align-items: flex-end; box-shadow: inset 0 -1px var(--light); padding-left: 2px; }
+.tabs [role='tab'] {
+  font: inherit; padding: 4px 14px; min-height: 30px; margin-bottom: 0; color: #000; cursor: pointer;
+  background: var(--face); border: 0; border-radius: 0;
+  box-shadow: inset 1px 1px var(--light), inset -1px 0 var(--dark), inset -2px 0 var(--shadow);
+}
+.tabs [role='tab'][aria-selected='true'] { min-height: 34px; position: relative; z-index: 1; box-shadow: inset 1px 1px var(--light), inset -1px 0 var(--dark), inset -2px 0 var(--shadow); font-weight: bold; }
+.panel { display: grid; gap: 8px; }
+.row { display: flex; gap: 6px; align-items: center; flex-wrap: wrap; }
+
+.pad-wrap { position: relative; height: 190px; background: #fff; box-shadow: var(--sunken); overflow: hidden; }
+#pad { position: absolute; inset: 2px; width: calc(100% - 4px); height: calc(100% - 4px); touch-action: none; cursor: crosshair; display: block; }
+.pad-line { position: absolute; left: 24px; right: 24px; bottom: 48px; border-bottom: 1px dashed #808080; pointer-events: none; }
+.pad-hint { position: absolute; left: 24px; bottom: 54px; color: #808080; pointer-events: none; }
+
+.field { display: grid; gap: 4px; }
+.field input { font: inherit; font-size: 15px; height: 28px; padding: 0 6px; border: 0; border-radius: 0; background: #fff; box-shadow: var(--sunken); }
+fieldset { border: 0; padding: 0; margin: 0; }
+legend { padding: 0; margin-bottom: 4px; }
+.font-choices { display: grid; gap: 0; }
+/* The choices read as one sunken white list box under the "Style" label. */
+.font-choice {
+  display: flex; align-items: center; gap: 10px; padding: 4px 8px; min-height: 50px; cursor: pointer; overflow: hidden;
+  background: #fff; box-shadow: inset 2px 0 var(--dark), inset -1px 0 var(--light), inset -2px 0 var(--soft);
+}
+.font-choice:first-of-type { box-shadow: inset 2px 2px var(--dark), inset -1px 0 var(--light), inset -2px 0 var(--soft); }
+.font-choice:last-of-type { box-shadow: inset 2px 0 var(--dark), inset -1px -1px var(--light), inset -2px -2px var(--soft); }
+.font-choice:has(input:checked) { background: #dde4f2; outline: 1px dotted #000; outline-offset: -1px; }
+.font-sample { font-size: 28px; line-height: 1.2; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.ink { display: flex; gap: 16px; align-items: center; flex-wrap: wrap; }
+.ink legend { float: left; margin: 0 4px 0 0; }
+.ink label { display: inline-flex; align-items: center; gap: 5px; cursor: pointer; min-height: 28px; }
+.swatch { width: 12px; height: 12px; display: inline-block; border: 1px solid #000; }
+.check { display: inline-flex; align-items: center; gap: 6px; min-height: 28px; }
+.preview { display: grid; gap: 4px; }
+.preview img {
+  max-width: 100%; max-height: 110px; justify-self: start; object-fit: contain;
+  background: repeating-conic-gradient(#e6e6e6 0% 25%, #fff 0% 50%) 0 0 / 12px 12px;
+  box-shadow: var(--sunken); padding: 6px;
+}
+.dialog .alert { margin-top: 0; margin-bottom: 0; }
+
+.faq { max-height: calc(100dvh - 22px); overflow: auto; gap: 6px; }
+.faq h3 { margin-top: 10px !important; margin-bottom: 0 !important; font-size: 13px; }
+.faq ul { margin-top: 0; margin-bottom: 0; padding-left: 20px; }
+.faq code { font-size: 12px; }
+
+/* ---------- toast (tooltip balloon) & drop ---------- */
+.toast {
+  position: fixed; left: 50%; bottom: 20px; transform: translateX(-50%); z-index: 50;
+  max-width: calc(100vw - 24px); padding: 6px 10px;
+  background: var(--tip); color: #000; border: 1px solid #000; box-shadow: 2px 2px 0 rgba(0, 0, 0, 0.35);
+}
+.toast.error { color: var(--danger); font-weight: bold; }
+.drop-overlay {
+  position: fixed; inset: 0; z-index: 60; display: grid; place-items: center; pointer-events: none;
+  background: rgba(10, 36, 106, 0.15); border: 3px dashed var(--navy);
+}
+.drop-overlay p { background: var(--tip); border: 1px solid #000; padding: 10px 18px; font-weight: bold; }
+
+/* ---------- medium widths: stack the two bars ---------- */
+@media (max-width: 1100px) {
+  .workspace {
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-rows: auto auto auto minmax(0, 1fr);
+    grid-template-areas: 'tools' 'actions' 'notices' 'view';
+  }
+  .actions { justify-content: flex-start; }
+}
+
+/* ---------- phones: bigger touch targets ---------- */
+@media (max-width: 760px) {
+  :root { font-size: 15px; --topbar: 40px; }
+  .menu-btn { height: 30px; }
+  .start { align-items: flex-start; padding-top: 16px; }
+  .workspace {
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-rows: auto auto minmax(0, 1fr) auto;
+    grid-template-areas: 'tools' 'notices' 'view' 'actions';
+  }
+  .toolbar { justify-content: space-between; padding: 4px; gap: 4px; }
+  .file-name { display: none; }
+  .group { padding-left: 0; border-left: 0; box-shadow: none; }
+  .icon-btn { width: 40px; height: 40px; }
+  .page-input input { height: 34px; }
+  .btn { min-height: 40px; min-width: 0; }
+  .actions {
+    display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); gap: 4px;
+    padding: 6px 6px calc(6px + env(safe-area-inset-bottom));
+  }
+  .actions #sign-btn, .actions #download-btn { grid-column: span 3; padding: 0 6px; min-height: 46px; }
+  .actions #sign-btn img { display: none; }
+  .actions #sign-btn { order: 1; }
+  .actions #download-btn { order: 2; }
+  .actions .subtle { order: 3; grid-column: span 2; padding: 0 4px; }
+  .actions:not(:has(#change-sig:not([hidden]))) .subtle { grid-column: span 3; }
+  .pages { padding: 8px; gap: 8px; }
+  .toast { bottom: 130px; }
+  .tabs [role='tab'] { min-height: 40px; flex: 1; }
+  .tabs [role='tab'][aria-selected='true'] { min-height: 44px; }
+  .field input { height: 40px; }
+  .pad-wrap { height: 180px; }
+}

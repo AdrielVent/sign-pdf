@@ -1,0 +1,214 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <meta name="referrer" content="no-referrer" />
+    <meta name="description" content="Sign a PDF in your browser. No account, no upload, no watermark. Free and open source." />
+    <meta name="color-scheme" content="light" />
+    <meta name="theme-color" content="#0a246a" />
+    <title>Sign PDF: no account, no upload</title>
+    <link rel="icon" href="./favicon.svg" type="image/svg+xml" />
+    <script type="module" src="/src/main.ts"></script>
+  </head>
+  <body>
+    <a class="skip" href="#main">Skip to content</a>
+    <header class="topbar">
+      <a class="brand" href="./" aria-label="Sign PDF home">
+        <svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true"><path d="M6 2h8l6 6v14H6z" fill="#fff" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"/><path d="M14 2v6h6" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"/><path d="M8.5 17.5c1.5-2.5 2.5-4 3.2-3.2.7.8-1 3 .3 3.1 1 .1 1.6-1.6 2.4-1.4.6.2.3 1.3 1.1 1.3" fill="none" stroke="#1f4fd1" stroke-width="1.5" stroke-linecap="round"/></svg>
+        <span>Sign PDF</span>
+      </a>
+      <button type="button" class="menu-btn" id="faq-open">How it works</button>
+    </header>
+
+    <main id="main">
+      <section id="start" class="start" aria-labelledby="start-title">
+        <div class="window start-window">
+          <div class="titlebar" aria-hidden="true"><span>Sign a PDF</span></div>
+          <div class="window-body">
+            <h1 id="start-title">Sign a PDF</h1>
+            <p class="lede">Open your PDF, add your signature, and save the signed copy. No account, no upload, no watermark.</p>
+            <div class="drop" id="dropzone">
+              <button type="button" class="btn primary big" id="open-btn">Open PDF</button>
+              <p class="hint">or drag a PDF file onto this window</p>
+            </div>
+            <ol class="steps" aria-label="How it works">
+              <li>Open a PDF.</li>
+              <li>Draw, type, or upload your signature.</li>
+              <li>Place it on the page and click <b>Download signed PDF</b>.</li>
+            </ol>
+            <div id="open-error" class="alert error" role="alert" hidden></div>
+            <p id="opening" class="hint" role="status" hidden>Opening…</p>
+          </div>
+          <p class="statusbar privacy">
+            <span>Your PDF never leaves this computer.</span>
+            <button type="button" class="linklike" data-faq="privacy">How?</button>
+          </p>
+        </div>
+      </section>
+
+      <section id="workspace" class="workspace" hidden aria-label="Document">
+        <div class="toolbar" role="toolbar" aria-label="Page and zoom">
+          <span class="file-name" id="file-name"></span>
+          <div class="group" aria-label="Pages">
+            <button type="button" class="icon-btn" id="prev-page" aria-label="Previous page">‹</button>
+            <label class="page-input">
+              <span class="sr-only">Page number</span>
+              <input id="page-num" type="text" inputmode="numeric" pattern="[0-9]*" value="1" aria-describedby="page-count" />
+            </label>
+            <span id="page-count" class="muted">of 1</span>
+            <button type="button" class="icon-btn" id="next-page" aria-label="Next page">›</button>
+          </div>
+          <div class="group" aria-label="Zoom">
+            <button type="button" class="icon-btn" id="zoom-out" aria-label="Zoom out">−</button>
+            <output id="zoom-level" class="zoom-level" aria-live="off">100%</output>
+            <button type="button" class="icon-btn" id="zoom-in" aria-label="Zoom in">+</button>
+            <button type="button" class="btn small subtle" id="zoom-fit">Fit</button>
+          </div>
+        </div>
+
+        <div class="actions" aria-label="Signing">
+          <button type="button" class="btn" id="sign-btn">
+            <img id="sign-thumb" alt="" hidden />
+            <span id="sign-label">Add signature</span>
+          </button>
+          <button type="button" class="btn subtle" id="change-sig" hidden>New signature</button>
+          <button type="button" class="btn primary" id="download-btn">Download signed PDF</button>
+          <button type="button" class="btn subtle" id="other-btn" title="Open a different PDF">Open other</button>
+          <button type="button" class="btn subtle" id="reset-btn">Start over</button>
+        </div>
+
+        <div id="notices" class="notices"></div>
+
+        <div id="scroller" class="scroller" tabindex="-1">
+          <div id="pages" class="pages"></div>
+        </div>
+      </section>
+    </main>
+
+    <input type="file" id="file-input" accept="application/pdf,.pdf" class="file-hidden" tabindex="-1" aria-hidden="true" />
+    <div id="toast" class="toast" role="status" aria-live="polite" hidden></div>
+    <div id="sr-announce" class="sr-only" aria-live="polite"></div>
+    <div id="drop-overlay" class="drop-overlay" hidden><p>Drop PDF to open</p></div>
+
+    <!-- Signature dialog -->
+    <dialog id="sig-dialog" aria-labelledby="sig-title">
+      <form method="dialog" class="dialog" id="sig-form" novalidate>
+        <div class="dialog-head">
+          <h2 id="sig-title">Create your signature</h2>
+          <button type="button" class="icon-btn" data-close aria-label="Close">×</button>
+        </div>
+        <div class="tabs" role="tablist" aria-label="How to create your signature">
+          <button type="button" role="tab" id="tab-draw" aria-controls="panel-draw" aria-selected="true">Draw</button>
+          <button type="button" role="tab" id="tab-type" aria-controls="panel-type" aria-selected="false" tabindex="-1">Type</button>
+          <button type="button" role="tab" id="tab-image" aria-controls="panel-image" aria-selected="false" tabindex="-1">Upload</button>
+        </div>
+
+        <div role="tabpanel" id="panel-draw" aria-labelledby="tab-draw" class="panel">
+          <div class="pad-wrap">
+            <canvas id="pad" role="img" aria-label="Signature drawing area. Draw with a mouse, finger, or stylus. Keyboard users can use the Type tab instead."></canvas>
+            <div class="pad-line" aria-hidden="true"></div>
+            <span class="pad-hint" id="pad-hint" aria-hidden="true">Sign here</span>
+          </div>
+          <div class="row">
+            <button type="button" class="btn small subtle" id="pad-undo">Undo</button>
+            <button type="button" class="btn small subtle" id="pad-clear">Clear</button>
+          </div>
+        </div>
+
+        <div role="tabpanel" id="panel-type" aria-labelledby="tab-type" class="panel" hidden>
+          <label class="field">
+            <span>Your name</span>
+            <input id="type-name" type="text" autocomplete="name" maxlength="80" spellcheck="false" />
+          </label>
+          <fieldset class="font-choices" id="font-choices">
+            <legend>Style</legend>
+          </fieldset>
+        </div>
+
+        <div role="tabpanel" id="panel-image" aria-labelledby="tab-image" class="panel" hidden>
+          <p class="hint left">Use a photo or scan of your signature on white paper (PNG or JPEG).</p>
+          <div class="row">
+            <button type="button" class="btn" id="image-pick">Choose image</button>
+            <span id="image-name" class="muted"></span>
+          </div>
+          <input type="file" id="image-input" accept="image/png,image/jpeg" class="file-hidden" tabindex="-1" aria-hidden="true" />
+          <label class="check"><input type="checkbox" id="remove-bg" checked /> Remove white background</label>
+        </div>
+
+        <fieldset class="ink" id="ink-field">
+          <legend>Ink</legend>
+          <label><input type="radio" name="ink" value="#111111" checked /> <span class="swatch" style="background:#111111"></span> Black</label>
+          <label><input type="radio" name="ink" value="#1d3fbf" /> <span class="swatch" style="background:#1d3fbf"></span> Blue</label>
+        </fieldset>
+
+        <div class="preview" id="sig-preview-wrap" hidden>
+          <span class="muted">Preview</span>
+          <img id="sig-preview" alt="Signature preview" />
+        </div>
+
+        <p id="sig-error" class="alert error" role="alert" hidden></p>
+
+        <div class="dialog-foot">
+          <button type="button" class="btn subtle" data-close>Cancel</button>
+          <button type="submit" class="btn primary" id="sig-use">Use signature</button>
+        </div>
+      </form>
+    </dialog>
+
+    <!-- Confirm dialog -->
+    <dialog id="confirm-dialog" aria-labelledby="confirm-title" aria-describedby="confirm-text">
+      <form method="dialog" class="dialog narrow">
+        <h2 id="confirm-title">Are you sure?</h2>
+        <p id="confirm-text"></p>
+        <div class="dialog-foot">
+          <button value="cancel" class="btn subtle" id="confirm-cancel">Cancel</button>
+          <button value="ok" class="btn danger" id="confirm-ok">Discard</button>
+        </div>
+      </form>
+    </dialog>
+
+    <!-- Message dialog -->
+    <dialog id="message-dialog" aria-labelledby="message-title" aria-describedby="message-text">
+      <form method="dialog" class="dialog narrow">
+        <h2 id="message-title"></h2>
+        <p id="message-text"></p>
+        <div class="dialog-foot">
+          <button value="ok" class="btn primary">OK</button>
+        </div>
+      </form>
+    </dialog>
+
+    <!-- FAQ -->
+    <dialog id="faq-dialog" aria-labelledby="faq-title">
+      <div class="dialog faq">
+        <div class="dialog-head">
+          <h2 id="faq-title">How it works</h2>
+          <button type="button" class="icon-btn" data-close aria-label="Close">×</button>
+        </div>
+        <h3>What does this do?</h3>
+        <p>It adds a visible image of your signature to the pages you choose and saves a new PDF named <code>yourfile-signed.pdf</code>. Your original file isn’t changed. Text stays searchable and nothing is flattened into a picture.</p>
+
+        <h3 id="faq-privacy">Where does my PDF go?</h3>
+        <p>Nowhere. The PDF and your signature are processed by code running in this browser tab. The site is a set of static files with no server-side code, and its security policy blocks the page from sending data to any other website. Your document and signature are kept in memory only (never saved to browser storage) and are cleared when you press <b>Start over</b> or close the tab. After the page has loaded you can turn off Wi-Fi and it still works.</p>
+        <p>The host (GitHub Pages) sees ordinary page-load requests, like any website, but never your files.</p>
+
+        <h3>Is this a “digital signature”?</h3>
+        <p>No. This is the electronic equivalent of signing a printout: it places a picture of your signature on the page. It does <b>not</b> add a certificate-based digital signature, verify who you are, or keep an audit trail. Whether a visible signature is acceptable depends on who you’re sending it to. This page is not legal advice.</p>
+
+        <h3>What if the PDF is already digitally signed?</h3>
+        <p>Changing a PDF that already carries a certificate-based digital signature makes that signature show as invalid or modified. The app warns you when it finds one, but that check can miss unusual files, so if a document came from an e-signature service, ask the sender before re-signing it.</p>
+
+        <h3>Known limitations</h3>
+        <ul>
+          <li>Password-protected or encrypted PDFs can’t be saved. Save an unprotected copy first.</li>
+          <li>The signed copy is rewritten as a new file, so existing digital signatures, PDF/A conformance claims, and incremental-save history are not preserved.</li>
+          <li>XFA (LiveCycle) forms may not display correctly.</li>
+          <li>The signature is a picture on the page, not a form field.</li>
+          <li>Very large PDFs are limited by your device’s memory.</li>
+        </ul>
+        <p class="muted">Free and open source under the MIT license. Built with PDF.js and pdf-lib. <a href="./licenses/THIRD_PARTY_NOTICES.txt">Third-party licenses</a>.</p>
+      </div>
+    </dialog>
+  </body>
+</html>
