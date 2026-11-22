@@ -50,7 +50,18 @@ export async function drawSignature(page: Page, ink: 'Black' | 'Blue' = 'Blue') 
   await openSignatureDialog(page);
   await page.getByRole('tab', { name: 'Draw' }).click();
   await chooseInk(page, ink);
-  const box = (await page.locator('#pad').boundingBox())!;
+  const pad = page.locator('#pad');
+  await expect(pad).toBeVisible();
+  // Switching tabs re-lays out the dialog; wait until the pad stops moving
+  // before measuring it, or strokes can land outside it on slow machines.
+  let box = (await pad.boundingBox())!;
+  await expect
+    .poll(async () => {
+      const prev = box;
+      box = (await pad.boundingBox())!;
+      return prev.x === box.x && prev.y === box.y && prev.width === box.width && box.width > 0;
+    })
+    .toBe(true);
   const y0 = box.y + box.height * 0.55;
   await page.mouse.move(box.x + 30, y0);
   await page.mouse.down();
@@ -59,7 +70,9 @@ export async function drawSignature(page: Page, ink: 'Black' | 'Blue' = 'Blue') 
     await page.mouse.move(x, y0 + Math.sin(i / 3) * 30);
   }
   await page.mouse.up();
+  await expect(page.locator('#pad-hint'), 'strokes should have landed on the pad').toBeHidden();
   await page.getByRole('button', { name: 'Use signature' }).click();
+  await expect(page.locator('#sig-error'), 'signature dialog reported an error').toBeHidden();
   await expect(page.locator('#sig-dialog')).toBeHidden();
 }
 
