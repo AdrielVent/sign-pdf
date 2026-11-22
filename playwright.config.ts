@@ -23,8 +23,9 @@ export default defineConfig({
     reuseExistingServer: !process.env.CI,
   },
   projects: [
-    { name: 'desktop-chromium', use: { ...devices['Desktop Chrome'] }, testIgnore: /mobile|smoke/ },
-    { name: 'mobile-chromium', use: { ...devices['Pixel 7'] }, testMatch: /mobile\.spec/ },
+    // Grayscale text antialiasing on every OS, so pixel checks behave the same on Linux CI as on macOS.
+    { name: 'desktop-chromium', use: { ...devices['Desktop Chrome'], launchOptions: { args: ['--disable-lcd-text'] } }, testIgnore: /mobile|smoke/ },
+    { name: 'mobile-chromium', use: { ...devices['Pixel 7'], launchOptions: { args: ['--disable-lcd-text'] } }, testMatch: /mobile\.spec/ },
     { name: 'desktop-webkit', use: { ...devices['Desktop Safari'] }, testMatch: /smoke\.spec/ },
     { name: 'mobile-webkit', use: { ...devices['iPhone 15'] }, testMatch: /smoke\.spec/ },
   ],

@@ -158,8 +158,13 @@ export async function renderExported(browser: Browser, bytes: Buffer, scale = 2)
         const canvas = document.createElement('canvas');
         canvas.width = Math.round(vp.width);
         canvas.height = Math.round(vp.height);
+        // Create the context first, transparent and CPU-backed: Chromium on Linux
+        // otherwise uses LCD (subpixel) text on opaque canvases, and the colored
+        // fringes on black text look like "blue ink" to the classifier below.
+        // PDF.js's later getContext() call returns this same context.
+        const ctx2d = canvas.getContext('2d', { alpha: true, willReadFrequently: true })!;
         await pg.render({ canvas, viewport: vp }).promise;
-        const img = canvas.getContext('2d')!.getImageData(0, 0, canvas.width, canvas.height).data;
+        const img = ctx2d.getImageData(0, 0, canvas.width, canvas.height).data;
         const red = { x0: Infinity, y0: Infinity, x1: -Infinity, y1: -Infinity };
         const blue = { x0: Infinity, y0: Infinity, x1: -Infinity, y1: -Infinity };
         let redCount = 0, blueCount = 0;
