@@ -1,6 +1,6 @@
 # Third-party notices
 
-Sign PDF is MIT-licensed. The built site bundles the following third-party
+vnua-signature is MIT-licensed. The built site bundles the following third-party
 software and fonts. Full license texts are shipped with the site in
 `licenses/` and are in each package under `node_modules/`.
 
@@ -23,3 +23,9 @@ license is included in the built site at `pdfjs/LICENSE` and
 The fonts are distributed under the SIL Open Font License 1.1. They are bundled
 unmodified (Latin subset files as published by Fontsource) and are not sold
 separately.
+
+## Test fixture (not shipped with the site)
+
+`tests/fixtures/fw9.pdf` is the blank IRS Form W-9 (Rev. March 2024), downloaded
+from irs.gov. It is a work of the United States government and is in the public
+domain. It is used only by the automated tests and contains no personal data.

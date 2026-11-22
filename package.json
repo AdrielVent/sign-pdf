@@ -1,8 +1,8 @@
 {
-  "name": "sign-pdf",
+  "name": "vnua-signature",
   "private": true,
   "version": "1.0.0",
-  "description": "Sign a PDF in your browser. No account, no upload.",
+  "description": "Fill in and sign PDFs in your browser. No account, no upload.",
   "license": "MIT",
   "type": "module",
   "scripts": {

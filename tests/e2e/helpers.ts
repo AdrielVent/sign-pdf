@@ -1,3 +1,5 @@
+import { randomUUID } from 'node:crypto';
+import { mkdirSync, writeFileSync } from 'node:fs';
 import { readFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { expect, type Browser, type Page } from '@playwright/test';
@@ -101,8 +103,9 @@ export interface PlacedRect {
   height: number;
 }
 
+/** Signature placements (the original tests only deal with signatures). */
 export async function placements(page: Page): Promise<PlacedRect[]> {
-  return page.locator('.placement').evaluateAll((els) =>
+  return page.locator('.placement[data-kind="image"]').evaluateAll((els) =>
     els.map((el) => {
       const [x, y, width, height] = (el as HTMLElement).dataset.rect!.split(',').map(Number);
       return { page: Number((el as HTMLElement).dataset.page), x, y, width, height };
@@ -117,17 +120,42 @@ export async function downloadSigned(page: Page) {
   const path = await download.path();
   const bytes = await readFile(path!);
   await expect(page.locator('#toast')).toContainText('Saved');
+  // Opt-in: keep exports for checking in other viewers (e.g. Preview / PDFKit).
+  if (process.env.SAVE_EXPORTS) {
+    mkdirSync(process.env.SAVE_EXPORTS, { recursive: true });
+    writeFileSync(join(process.env.SAVE_EXPORTS, `${download.suggestedFilename().replace(/\.pdf$/, '')}-${randomUUID().slice(0, 8)}.pdf`), bytes);
+  }
   return { name: download.suggestedFilename(), bytes };
 }
 
+export interface RenderedText {
+  str: string;
+  /** Baseline origin in display units (top-left origin). */
+  x: number;
+  y: number;
+  size: number;
+  /** True if the text runs left-to-right on screen (upright). */
+  upright: boolean;
+}
 export interface RenderedPage {
   width: number;
   height: number;
   text: string;
+  texts: RenderedText[];
+  /** Form field values by fully-qualified name, as PDF.js reads them from the export. */
+  fields: Record<string, string>;
   red: Box | null;
   blue: Box | null;
   redCount: number;
   blueCount: number;
+}
+/** Count dark (black-ish) pixels inside a display-space rectangle of a page. */
+export interface Probe {
+  page: number;
+  x: number;
+  y: number;
+  width: number;
+  height: number;
 }
 export interface Box {
   x0: number;
@@ -141,6 +169,15 @@ export interface Box {
  * and report where red / blue ink appears on each page, in display units.
  */
 export async function renderExported(browser: Browser, bytes: Buffer, scale = 2): Promise<RenderedPage[]> {
+  return (await analyzeExported(browser, bytes, [], scale)).pages;
+}
+
+/**
+ * Like renderExported, plus dark-pixel counts for each probe rectangle.
+ * Pages are painted as for printing (annotation appearances included), so
+ * form-field values must have real appearance streams to be counted.
+ */
+export async function analyzeExported(browser: Browser, bytes: Buffer, probes: Probe[], scale = 2): Promise<{ pages: RenderedPage[]; dark: number[] }> {
   const ctx = await browser.newContext();
   await ctx.route('http://verify.test/**', async (route) => {
     const url = new URL(route.request().url());
@@ -159,12 +196,13 @@ export async function renderExported(browser: Browser, bytes: Buffer, scale = 2)
   const page = await ctx.newPage();
   await page.goto('http://verify.test/');
   const result = await page.evaluate(
-    async ({ b64, scale }) => {
+    async ({ b64, scale, probes }) => {
       const pdfjs = await import('http://verify.test/pdfjs/pdf.mjs' as string);
       pdfjs.GlobalWorkerOptions.workerSrc = 'http://verify.test/pdfjs/pdf.worker.mjs';
       const data = Uint8Array.from(atob(b64), (c) => c.charCodeAt(0));
       const pdf = await pdfjs.getDocument({ data, standardFontDataUrl: 'http://verify.test/standard_fonts/', wasmUrl: 'http://verify.test/wasm/' }).promise;
       const out = [];
+      const dark: number[] = probes.map(() => 0);
       for (let n = 1; n <= pdf.numPages; n++) {
         const pg = await pdf.getPage(n);
         const vp = pg.getViewport({ scale });
@@ -193,24 +231,104 @@ export async function renderExported(browser: Browser, bytes: Buffer, scale = 2)
             else if (b > 110 && b - r > 50 && b - g > 30) { blueCount++; grow(blue); }
           }
         }
+        probes.forEach((pr, k) => {
+          if (pr.page !== n - 1) return;
+          const x0 = Math.max(0, Math.floor(pr.x * scale)), y0 = Math.max(0, Math.floor(pr.y * scale));
+          const x1 = Math.min(canvas.width, Math.ceil((pr.x + pr.width) * scale)), y1 = Math.min(canvas.height, Math.ceil((pr.y + pr.height) * scale));
+          for (let y = y0; y < y1; y++) for (let x = x0; x < x1; x++) {
+            const i = (y * canvas.width + x) * 4;
+            if (img[i] < 110 && img[i + 1] < 110 && img[i + 2] < 110) dark[k]++;
+          }
+        });
         const norm = (bx: typeof red, count: number) => (count ? { x0: bx.x0 / scale, y0: bx.y0 / scale, x1: bx.x1 / scale, y1: bx.y1 / scale } : null);
         const tc = await pg.getTextContent();
+        const texts = [];
+        for (const it of tc.items as { str?: string; transform?: number[] }[]) {
+          if (!it.str || !it.transform) continue;
+          const t = pdfjs.Util.transform(vp.transform, it.transform) as number[];
+          texts.push({ str: it.str, x: t[4] / scale, y: t[5] / scale, size: Math.hypot(t[2], t[3]) / scale, upright: t[0] > 0 && Math.abs(t[1]) < 1e-6 * Math.abs(t[0]) + 1e-9 });
+        }
+        const fields: Record<string, string> = {};
+        for (const a of (await pg.getAnnotations()) as { fieldName?: string; fieldValue?: unknown }[]) {
+          if (a.fieldName) fields[a.fieldName] = Array.isArray(a.fieldValue) ? String(a.fieldValue[0] ?? '') : String(a.fieldValue ?? '');
+        }
         out.push({
           width: vp.width / scale,
           height: vp.height / scale,
           text: tc.items.map((i: { str?: string }) => i.str ?? '').join(' '),
+          texts,
+          fields,
           red: norm(red, redCount),
           blue: norm(blue, blueCount),
           redCount,
           blueCount,
         });
       }
-      return out;
+      return { pages: out, dark };
     },
-    { b64: bytes.toString('base64'), scale },
+    { b64: bytes.toString('base64'), scale, probes },
   );
   await ctx.close();
   return result;
+}
+
+// ---------------------------------------------------------------- fill & sign helpers
+
+/** Display-space size of a page (from the app's test hook: numbers only). */
+export async function pageSize(page: Page, index: number): Promise<{ width: number; height: number }> {
+  return page.evaluate((i) => (window as unknown as { __vnuaSignature: { pageSize(i: number): { width: number; height: number } } }).__vnuaSignature.pageSize(i), index);
+}
+
+/** Scroll so a display-space point of a page is in view; return its screen coordinates. */
+export async function pagePoint(page: Page, index: number, x: number, y: number): Promise<{ x: number; y: number }> {
+  const size = await pageSize(page, index);
+  await page.evaluate(
+    ({ index, y, h }) => {
+      const scroller = document.getElementById('scroller')!;
+      const el = document.querySelector<HTMLElement>(`.page[data-page="${index}"]`)!;
+      scroller.scrollTop = el.offsetTop + (y / h) * el.offsetHeight - scroller.clientHeight / 2;
+    },
+    { index, y, h: size.height },
+  );
+  const box = (await page.locator(`.page[data-page="${index}"] .overlay`).boundingBox())!;
+  const k = box.width / size.width;
+  return { x: box.x + x * k, y: box.y + y * k };
+}
+
+export async function clickOnPage(page: Page, index: number, x: number, y: number) {
+  const p = await pagePoint(page, index, x, y);
+  await page.mouse.click(p.x, p.y);
+}
+
+/** Placements of one kind ('image' = signature, 'text', 'check'). */
+export async function placementsOf(page: Page, kind: 'image' | 'text' | 'check'): Promise<PlacedRect[]> {
+  return (await page.locator(`.placement[data-kind="${kind}"]`).evaluateAll((els) =>
+    els.map((el) => {
+      const [x, y, width, height] = (el as HTMLElement).dataset.rect!.split(',').map(Number);
+      return { page: Number((el as HTMLElement).dataset.page), x, y, width, height };
+    }),
+  )) as PlacedRect[];
+}
+
+export async function baselineRatio(page: Page): Promise<number> {
+  return page.evaluate(() => (window as unknown as { __vnuaSignature: { baselineRatio(): number } }).__vnuaSignature.baselineRatio());
+}
+
+/**
+ * Where an on-screen box sits relative to its page, as fractions of the page
+ * size. Zoom or window size must never change this.
+ */
+export async function relativeBox(page: Page, selector: string) {
+  return page.locator(selector).evaluate((el) => {
+    const pageEl = el.closest('.page')!.getBoundingClientRect();
+    const r = el.getBoundingClientRect();
+    return {
+      x: (r.left - pageEl.left) / pageEl.width,
+      y: (r.top - pageEl.top) / pageEl.height,
+      w: r.width / pageEl.width,
+      h: r.height / pageEl.height,
+    };
+  });
 }
 
 /** The rendered red box must match the placement rect to within `tol` display units. */

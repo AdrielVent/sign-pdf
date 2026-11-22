@@ -272,7 +272,7 @@ test('long documents render lazily and page navigation works', async ({ page }) 
   await openAndWait(page, 'many-pages.pdf');
   await expect(page.locator('#page-count')).toHaveText('of 60');
   await page.waitForTimeout(500);
-  const rendered = await page.evaluate(() => (window as unknown as { __signPdf: { renderedPages(): number } }).__signPdf.renderedPages());
+  const rendered = await page.evaluate(() => (window as unknown as { __vnuaSignature: { renderedPages(): number } }).__vnuaSignature.renderedPages());
   expect(rendered).toBeLessThan(10);
   await goToPage(page, 50);
   await expect(page.locator('.page[data-page="49"]')).toHaveClass(/rendered/);

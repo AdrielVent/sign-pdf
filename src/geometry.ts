@@ -108,17 +108,42 @@ export function placementToPdf(g: PageGeom, rect: Rect): PdfImagePlacement {
   };
 }
 
+/** A PDF transformation matrix [a b c d e f]. */
+export type Matrix = [number, number, number, number, number, number];
+
+/**
+ * Matrix for drawing *inside* a placement box as the user sees it.
+ * Local space: origin at the box's bottom-left corner on screen, x to the
+ * right on screen, y up on screen, units = display units (pt × UserUnit).
+ * Concatenated onto the page's CTM, it handles /Rotate, crop-box origin and
+ * /UserUnit, so text and marks drawn in local space land exactly in the box.
+ */
+export function localFrameToPdf(g: PageGeom, rect: Rect): Matrix {
+  const bottom = rect.y + rect.height;
+  const [ex, ey] = displayToPdf(g, rect.x, bottom);
+  const [rx, ry] = displayToPdf(g, rect.x + 1, bottom); // one unit right on screen
+  const [ux, uy] = displayToPdf(g, rect.x, bottom - 1); // one unit up on screen
+  return [rx - ex, ry - ey, ux - ex, uy - ey, ex, ey];
+}
+
+/** Display rect covered by a PDF user-space rectangle [x1, y1, x2, y2] (e.g. a form widget). */
+export function pdfRectToDisplay(g: PageGeom, r: readonly number[]): Rect {
+  const [ax, ay] = pdfToDisplay(g, r[0], r[1]);
+  const [bx, by] = pdfToDisplay(g, r[2], r[3]);
+  return { x: Math.min(ax, bx), y: Math.min(ay, by), width: Math.abs(bx - ax), height: Math.abs(by - ay) };
+}
+
 export const MIN_SIGNATURE_WIDTH = 12; // display units (pt)
 
 /**
  * Keep a rectangle inside the visible page, preserving aspect ratio.
  * If it is larger than the page it is scaled down first.
  */
-export function clampRect(g: PageGeom, rect: Rect): Rect {
+export function clampRect(g: PageGeom, rect: Rect, minWidth = MIN_SIGNATURE_WIDTH): Rect {
   const page = displaySize(g);
   let { width, height } = rect;
   const aspect = width / height;
-  const minW = Math.min(MIN_SIGNATURE_WIDTH, page.width);
+  const minW = Math.min(minWidth, page.width);
   if (width < minW) {
     width = minW;
     height = width / aspect;
@@ -137,12 +162,12 @@ export function clampRect(g: PageGeom, rect: Rect): Rect {
 }
 
 /** Resize about the top-left corner to a new width, keeping aspect, then clamp. */
-export function resizeRect(g: PageGeom, rect: Rect, newWidth: number): Rect {
+export function resizeRect(g: PageGeom, rect: Rect, newWidth: number, minWidth = MIN_SIGNATURE_WIDTH): Rect {
   const page = displaySize(g);
   const aspect = rect.width / rect.height;
   const maxW = Math.min(page.width - rect.x, (page.height - rect.y) * aspect);
-  const w = Math.max(Math.min(newWidth, maxW), Math.min(MIN_SIGNATURE_WIDTH, maxW));
-  return clampRect(g, { x: rect.x, y: rect.y, width: w, height: w / aspect });
+  const w = Math.max(Math.min(newWidth, maxW), Math.min(minWidth, maxW));
+  return clampRect(g, { x: rect.x, y: rect.y, width: w, height: w / aspect }, minWidth);
 }
 
 /** Default placement: a signature ~30% of page width, centred on a display point. */

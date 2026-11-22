@@ -2,7 +2,7 @@
  * Checks, with the same library used for export (pdf-lib), whether a signed
  * copy of this PDF can be saved, and collects warnings worth showing first.
  */
-import { PDFDict, PDFDocument, PDFName } from 'pdf-lib';
+import { PDFArray, PDFBool, PDFDict, PDFDocument, PDFName, PDFRef } from 'pdf-lib';
 
 export type Inspection =
   | { ok: true; pageCount: number; warnings: string[]; hasDigitalSignature: boolean }
@@ -12,17 +12,29 @@ export const DIGITAL_SIGNATURE_WARNING =
   'This PDF appears to contain a digital (certificate) signature. Saving a copy with your signature added will make that existing signature show as invalid or modified. If that matters, ask the sender how they want it signed.';
 
 export const XFA_WARNING =
-  'This PDF contains an XFA form. Some viewers, including this one, may not show those form fields as the author intended.';
+  'This PDF uses an XFA (LiveCycle) form that only some viewers can show. Its form fields may not appear here; you can still add text and your signature on the page.';
 
-/** True if any object in the file is a signature dictionary (/Type /Sig, /DocTimeStamp, or has /ByteRange). */
+/**
+ * True if the file carries a certificate signature: any signature dictionary
+ * (/Type /Sig, /DocTimeStamp, or with /ByteRange) or a certification (/DocMDP).
+ * Adobe "Reader extensions" usage rights (/Perms /UR, /UR3) are not the
+ * sender's signature; they only unlock features in old Acrobat Reader, and
+ * are removed on export, so they don't count.
+ */
 export function hasDigitalSignature(doc: PDFDocument): boolean {
   const Sig = PDFName.of('Sig');
   const DocTimeStamp = PDFName.of('DocTimeStamp');
   const Type = PDFName.of('Type');
   const ByteRange = PDFName.of('ByteRange');
-  if (doc.catalog.get(PDFName.of('Perms'))) return true;
+  const perms = doc.catalog.lookupMaybe(PDFName.of('Perms'), PDFDict);
+  if (perms?.has(PDFName.of('DocMDP'))) return true;
+  const usageRights = new Set<unknown>();
+  for (const key of ['UR', 'UR3']) {
+    const ref = perms?.get(PDFName.of(key));
+    if (ref) usageRights.add(ref instanceof PDFRef ? doc.context.lookup(ref) : ref);
+  }
   for (const [, obj] of doc.context.enumerateIndirectObjects()) {
-    if (!(obj instanceof PDFDict)) continue;
+    if (!(obj instanceof PDFDict) || usageRights.has(obj)) continue;
     const type = obj.get(Type);
     if (type === Sig || type === DocTimeStamp) return true;
     if (obj.has(ByteRange)) return true;
@@ -30,9 +42,17 @@ export function hasDigitalSignature(doc: PDFDocument): boolean {
   return false;
 }
 
-function hasXfa(doc: PDFDocument): boolean {
+/**
+ * True for XFA-only ("dynamic") forms. Hybrid forms such as the IRS W-9 also
+ * contain normal AcroForm fields, which this app fills; the exporter removes
+ * the XFA copy so every viewer shows those fields.
+ */
+function isXfaOnly(doc: PDFDocument): boolean {
   const acro = doc.catalog.lookupMaybe(PDFName.of('AcroForm'), PDFDict);
-  return !!acro?.get(PDFName.of('XFA'));
+  if (!acro?.get(PDFName.of('XFA'))) return false;
+  if (doc.catalog.lookupMaybe(PDFName.of('NeedsRendering'), PDFBool)?.asBoolean()) return true;
+  const fields = acro.lookupMaybe(PDFName.of('Fields'), PDFArray);
+  return !fields || fields.size() === 0;
 }
 
 export async function loadForEditing(bytes: Uint8Array): Promise<PDFDocument> {
@@ -62,6 +82,6 @@ export async function inspectForEditing(bytes: Uint8Array): Promise<Inspection> 
   const warnings: string[] = [];
   const signed = hasDigitalSignature(doc);
   if (signed) warnings.push(DIGITAL_SIGNATURE_WARNING);
-  if (hasXfa(doc)) warnings.push(XFA_WARNING);
+  if (isXfaOnly(doc)) warnings.push(XFA_WARNING);
   return { ok: true, pageCount: doc.getPageCount(), warnings, hasDigitalSignature: signed };
 }

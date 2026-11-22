@@ -2,7 +2,7 @@
  * Continuous-scroll page viewer with lazy rendering. Only pages near the
  * viewport get a canvas; far-away canvases are released.
  */
-import type { PDFDocumentProxy, RenderTask } from 'pdfjs-dist/legacy/build/pdf.mjs';
+import { AnnotationMode, type PDFDocumentProxy, type RenderTask } from 'pdfjs-dist/legacy/build/pdf.mjs';
 import { displaySize, type PageGeom } from './geometry';
 
 const MAX_CANVAS_PIXELS = 12_000_000; // stays under iOS Safari's canvas limit
@@ -205,7 +205,10 @@ export class Viewer {
     canvas.height = Math.floor(viewport.height);
     canvas.className = 'page-canvas';
     canvas.setAttribute('aria-hidden', 'true');
-    p.task = page.render({ canvas, viewport });
+    // ENABLE_STORAGE: paint annotations as when printing, but form fields use the
+    // values in pdf.annotationStorage, which forms.ts blanks for every field it
+    // covers with a live input (so values never show twice).
+    p.task = page.render({ canvas, viewport, annotationMode: AnnotationMode.ENABLE_STORAGE });
     await p.task.promise;
     p.task = null;
     if (this.pdf !== pdf) return;

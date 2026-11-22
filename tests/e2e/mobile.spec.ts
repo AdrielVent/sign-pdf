@@ -1,5 +1,6 @@
 import { expect, test, type CDPSession, type Page } from '@playwright/test';
-import { downloadSigned, expectInkInside, gotoApp, openAndWait, placements, renderExported } from './helpers';
+import { FLAT_FORM } from '../fixtures/fixtures';
+import { downloadSigned, expectInkInside, gotoApp, openAndWait, openFixture, pagePoint, placements, renderExported } from './helpers';
 
 // Real touch input via the Chrome DevTools Protocol, so touch-action and
 // native scrolling behave exactly as on a phone.
@@ -73,4 +74,32 @@ test('phone: scroll the document, draw with a finger, drag the signature, downlo
   const { bytes } = await downloadSigned(page);
   const pages = await renderExported(browser, bytes);
   expectInkInside(pages[0].blue, r1);
+});
+
+test('phone: tap a form field and type; Add Text by tapping a line', async ({ page, browser }) => {
+  await gotoApp(page);
+  await openAndWait(page, 'fw9.pdf');
+  const name = page.locator('.pdf-field[data-field="topmostSubform[0].Page1[0].f1_01[0]"]');
+  await name.tap();
+  await expect(name).toBeFocused();
+  await page.keyboard.type('Jane Q. Example');
+  await expect(name).toHaveValue('Jane Q. Example');
+  await page.getByRole('checkbox', { name: 'Individual/sole proprietor' }).tap();
+  await expect(page.getByRole('checkbox', { name: 'Individual/sole proprietor' })).toBeChecked();
+
+  // Flat form: Add Text, tap the line, type.
+  // Opening another PDF asks first, because the W-9 has unsaved entries.
+  await openFixture(page, 'flat-form.pdf');
+  await expect(page.locator('#confirm-dialog')).toBeVisible();
+  await page.locator('#confirm-ok').tap();
+  await expect(page.locator('#file-name')).toHaveText('flat-form.pdf');
+  await page.locator('#tool-text').tap();
+  const p = await pagePoint(page, 0, FLAT_FORM.name.x + 2, FLAT_FORM.name.y);
+  await page.touchscreen.tap(p.x, p.y);
+  await page.keyboard.type('Tapped text');
+  await expect(page.locator('.placement[data-kind="text"] input')).toHaveValue('Tapped text');
+  await page.locator('.pdf-field, #scroller').first().evaluate(() => (document.activeElement as HTMLElement)?.blur());
+  const { bytes } = await downloadSigned(page);
+  const pages = await renderExported(browser, bytes);
+  expect(pages[0].text).toContain('Tapped text');
 });

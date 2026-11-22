@@ -1,7 +1,7 @@
 /**
  * Test fixtures, generated from code. No private or third-party documents.
  */
-import { mkdirSync, writeFileSync } from 'node:fs';
+import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { deflateSync } from 'node:zlib';
 import {
@@ -19,6 +19,66 @@ import {
 } from 'pdf-lib';
 
 export const FIXTURE_DIR = join(import.meta.dirname, 'generated');
+
+/**
+ * The official, blank IRS Form W-9 (Rev. March 2024), a public-domain US
+ * government form with 23 AcroForm fields plus an XFA copy and Adobe usage
+ * rights. Committed as-is; no field contains a value.
+ */
+export const FW9_PATH = join(import.meta.dirname, 'fw9.pdf');
+export const fw9 = (): Uint8Array => new Uint8Array(readFileSync(FW9_PATH));
+
+/** The same W-9 flattened: it looks identical but has no fields, like a scan or "print to PDF". */
+export async function fw9Flat(): Promise<Uint8Array> {
+  const doc = await PDFDocument.load(fw9(), { updateMetadata: false });
+  doc.getForm().flatten();
+  return doc.save();
+}
+
+/**
+ * A flat (field-less) form. Positions are in display space (top-left origin,
+ * as shown on screen), so tests can click "on the line". `y` of a line is the
+ * line itself. Page 2 is rotated 90°.
+ */
+export const FLAT_FORM = {
+  name: { page: 0, x: 150, y: 142, width: 300 },
+  date: { page: 0, x: 150, y: 192, width: 160 },
+  boxA: { page: 0, x: 72, y: 240, size: 12 },
+  boxB: { page: 0, x: 220, y: 240, size: 12 },
+  notes: { page: 1, x: 120, y: 260, width: 420 },
+} as const;
+
+export async function flatForm(): Promise<Uint8Array> {
+  const doc = await PDFDocument.create();
+  const font = await doc.embedFont(StandardFonts.Helvetica);
+  const black = rgb(0, 0, 0);
+
+  const p1 = doc.addPage([612, 792]);
+  const Y = (y: number) => 792 - y; // page 1 is unrotated
+  p1.drawText('Flat application form (no fields)', { x: 72, y: Y(80), size: 16, font, color: black });
+  const line = (l: { x: number; y: number; width: number }, label: string) => {
+    p1.drawText(label, { x: 72, y: Y(l.y) + 2, size: 11, font, color: black });
+    p1.drawLine({ start: { x: l.x, y: Y(l.y) }, end: { x: l.x + l.width, y: Y(l.y) }, thickness: 0.75, color: black });
+  };
+  line(FLAT_FORM.name, 'Full name');
+  line(FLAT_FORM.date, 'Date');
+  for (const [b, label] of [[FLAT_FORM.boxA, 'Option A'], [FLAT_FORM.boxB, 'Option B']] as const) {
+    p1.drawRectangle({ x: b.x, y: Y(b.y + b.size), width: b.size, height: b.size, borderColor: black, borderWidth: 0.75 });
+    p1.drawText(label, { x: b.x + b.size + 6, y: Y(b.y + b.size) + 2, size: 11, font, color: black });
+  }
+  p1.drawText(textMarker(1), { x: 250, y: 396, size: 10, font, color: black });
+
+  // Page 2: portrait page shown rotated 90° clockwise (landscape on screen).
+  const p2 = doc.addPage([612, 792]);
+  p2.setRotation(degrees(90));
+  // Display (u, v) -> PDF for /Rotate 90 with view [0 0 612 792]: (x, y) = (v, u).
+  const P = (u: number, v: number) => ({ x: v, y: u });
+  const n = FLAT_FORM.notes;
+  p2.drawText('Notes', { ...P(60, n.y - 2), size: 11, font, color: black, rotate: degrees(90) });
+  p2.drawLine({ start: P(n.x, n.y), end: P(n.x + n.width, n.y), thickness: 0.75, color: black });
+  p2.drawText(textMarker(2), { ...P(300, 400), size: 10, font, color: black, rotate: degrees(90) });
+  return doc.save();
+}
 
 export const textMarker = (n: number) => `SIGNPDF-TEXT-${n}`;
 
@@ -217,6 +277,9 @@ export async function writeAllFixtures(): Promise<Record<string, string>> {
     'not-a-pdf.pdf': notAPdf(),
     'corrupt.pdf': corruptPdf(),
     'red-signature.png': solidPng(300, 100, [255, 0, 0]),
+    'fw9.pdf': fw9(),
+    'fw9-flat.pdf': await fw9Flat(),
+    'flat-form.pdf': await flatForm(),
   };
   const out: Record<string, string> = {};
   for (const [name, bytes] of Object.entries(files)) {

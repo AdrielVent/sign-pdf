@@ -38,5 +38,5 @@ for (const [pkg, file] of Object.entries(shipped)) {
   copyFileSync(join(root, 'node_modules', pkg, file), join(licenses, `${pkg.replace('/', '__').replace('@', '')}.txt`));
 }
 copyFileSync(join(root, 'THIRD_PARTY_NOTICES.md'), join(licenses, 'THIRD_PARTY_NOTICES.txt'));
-copyFileSync(join(root, 'LICENSE'), join(licenses, 'sign-pdf-LICENSE.txt'));
+copyFileSync(join(root, 'LICENSE'), join(licenses, 'vnua-signature-LICENSE.txt'));
 console.log('Copied licenses to public/licenses');
